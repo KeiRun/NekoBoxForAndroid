@@ -6,8 +6,8 @@ on:
       - main
       - awg-v31
 jobs:
-  libcore:
-    name: Native Build (LibCore)
+  build:
+    name: Build Universal Release APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -35,7 +35,6 @@ jobs:
           go-version: ^1.24
           cache: false
       - name: Setup Toolchains
-        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
           NDK_DIR=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
@@ -53,29 +52,6 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit $ERR
           }
-  build:
-    name: Build OSS APK
-    runs-on: ubuntu-latest
-    needs:
-      - libcore
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-      - name: Golang Status
-        run: find buildScript libcore/*.sh | xargs cat | sha1sum > golang_status
-      - name: Libcore Status
-        run: git ls-files libcore | xargs cat | sha1sum > libcore_status
-      - name: LibCore Cache
-        uses: actions/cache@v5
-        with:
-          path: |
-            app/libs/libcore.aar
-          key: ${{ hashFiles('.github/workflows/*', 'golang_status', 'libcore_status') }}
       - name: Gradle cache
         uses: actions/cache@v5
         with:
@@ -84,11 +60,11 @@ jobs:
       - name: Gradle Build
         env:
           BUILD_PLUGIN: none
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -e
-          NDK_DIR=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "ndk.dir=$NDK_DIR" >> local.properties
+          echo "ndk.dir=$ANDROID_NDK_HOME" >> local.properties
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
           KEYSTORE_PASS="${{ secrets.KEYSTORE_PASS }}" ALIAS_NAME="${{ secrets.ALIAS_NAME }}" ALIAS_PASS="${{ secrets.ALIAS_PASS}}" ./gradlew app:assembleOssRelease --stacktrace

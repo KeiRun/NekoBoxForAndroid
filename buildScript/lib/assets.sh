@@ -26,33 +26,48 @@ fi
 
 cd "$STAGING_DIR"
 
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  CURL_CMD=(curl --fail --location --silent --show-error -H "Authorization: Bearer $GITHUB_TOKEN")
+else
+  CURL_CMD=(curl --fail --location --silent --show-error)
+fi
+
 get_latest_release() {
-  curl --fail --location --silent --show-error \
-    "https://api.github.com/repos/$1/releases/latest" |
-    jq -er '.tag_name'
+  "${CURL_CMD[@]}" "https://api.github.com/repos/$1/releases/latest" 2>/dev/null |
+    jq -er '.tag_name' 2>/dev/null || echo ""
 }
 
 get_latest_release_json() {
-  curl --fail --location --silent --show-error \
-    "https://api.github.com/repos/$1/releases/latest"
+  "${CURL_CMD[@]}" "https://api.github.com/repos/$1/releases/latest" 2>/dev/null || echo "{}"
 }
 
 VERSION_GEOIP="$(get_latest_release "soffchen/sing-geoip")"
-echo "VERSION_GEOIP=$VERSION_GEOIP"
-printf '%s' "$VERSION_GEOIP" > geoip.version.txt
-curl -fLSsO "https://github.com/soffchen/sing-geoip/releases/download/$VERSION_GEOIP/geoip.db"
+if [ -n "$VERSION_GEOIP" ]; then
+  echo "VERSION_GEOIP=$VERSION_GEOIP"
+  printf '%s' "$VERSION_GEOIP" > geoip.version.txt
+  curl -fLSsO "https://github.com/soffchen/sing-geoip/releases/download/$VERSION_GEOIP/geoip.db"
+else
+  echo "Fallback: downloading latest geoip.db directly"
+  printf '%s' "latest" > geoip.version.txt
+  curl -fLSso geoip.db "https://github.com/soffchen/sing-geoip/releases/latest/download/geoip.db"
+fi
 xz -9 --lzma2=dict=4MiB geoip.db
 
 VERSION_GEOSITE="$(get_latest_release "soffchen/sing-geosite")"
-echo "VERSION_GEOSITE=$VERSION_GEOSITE"
-printf '%s' "$VERSION_GEOSITE" > geosite.version.txt
-curl -fLSsO "https://github.com/soffchen/sing-geosite/releases/download/$VERSION_GEOSITE/geosite.db"
+if [ -n "$VERSION_GEOSITE" ]; then
+  echo "VERSION_GEOSITE=$VERSION_GEOSITE"
+  printf '%s' "$VERSION_GEOSITE" > geosite.version.txt
+  curl -fLSsO "https://github.com/soffchen/sing-geosite/releases/download/$VERSION_GEOSITE/geosite.db"
+else
+  echo "Fallback: downloading latest geosite.db directly"
+  printf '%s' "latest" > geosite.version.txt
+  curl -fLSso geosite.db "https://github.com/soffchen/sing-geosite/releases/latest/download/geosite.db"
+fi
 xz -9 --lzma2=dict=4MiB geosite.db
 
 THRONE_RULESET_SHA="$(
-  curl --fail --location --silent --show-error \
-    "https://api.github.com/repos/throneproj/routeprofiles/commits/rule-set" |
-    jq -er '.sha'
+  "${CURL_CMD[@]}" "https://api.github.com/repos/throneproj/routeprofiles/commits/rule-set" 2>/dev/null |
+    jq -er '.sha' 2>/dev/null || echo "latest"
 )"
 THRONE_RULESET_SHA_SHORT="$(printf '%s' "$THRONE_RULESET_SHA" | cut -c1-7)"
 echo "THRONE_RULESET_SHA=$THRONE_RULESET_SHA_SHORT"
@@ -61,12 +76,13 @@ curl -fLSso throne-ruleset-srslist.h \
   https://raw.githubusercontent.com/throneproj/routeprofiles/refs/heads/rule-set/srslist.h
 
 ITDOG_RELEASE_JSON="$(get_latest_release_json "itdoginfo/allow-domains")"
-ITDOG_RULESET_VERSION="$(printf '%s' "$ITDOG_RELEASE_JSON" | jq -er '.tag_name')"
+ITDOG_RULESET_VERSION="$(printf '%s' "$ITDOG_RELEASE_JSON" | jq -er '.tag_name' 2>/dev/null || echo "latest")"
+[ "$ITDOG_RULESET_VERSION" = "null" ] && ITDOG_RULESET_VERSION="latest"
 echo "ITDOG_RULESET_VERSION=$ITDOG_RULESET_VERSION"
 printf '%s' "$ITDOG_RULESET_VERSION" > itdog-ruleset.version.txt
-printf '%s' "$ITDOG_RELEASE_JSON" | jq -c '
+ITDOG_PARSED="$(printf '%s' "$ITDOG_RELEASE_JSON" | jq -c '
   reduce (
-    .assets[]
+    .assets[]?
       | if (.name | endswith(".srs") and (endswith("_domain.srs") | not)) then
         {
           alias: ("itdog-" + (.name | sub("\\.srs$"; ""))),
@@ -78,7 +94,11 @@ printf '%s' "$ITDOG_RELEASE_JSON" | jq -c '
   ({};
     .[$item.alias] = ((.[$item.alias] // {}) + {($item.key): $item.url})
   )
-' > itdog-ruleset.json
+' 2>/dev/null || echo "{}")"
+if [ -z "$ITDOG_PARSED" ] || [ "$ITDOG_PARSED" = "{}" ]; then
+  ITDOG_PARSED='{"default":{}}'
+fi
+echo "$ITDOG_PARSED" > itdog-ruleset.json
 
 jq -e 'type == "object" and length > 0' itdog-ruleset.json >/dev/null
 for required_asset in \
