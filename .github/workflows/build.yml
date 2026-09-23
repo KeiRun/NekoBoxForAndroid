@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: ^1.24
+          cache: false
       - name: Setup Toolchains
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
@@ -84,24 +85,19 @@ jobs:
         env:
           BUILD_PLUGIN: none
         run: |
+          set -e
           NDK_DIR=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
           echo "ndk.dir=$NDK_DIR" >> local.properties
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
-          KEYSTORE_PASS="${{ secrets.KEYSTORE_PASS }}" ALIAS_NAME="${{ secrets.ALIAS_NAME }}" ALIAS_PASS="${{ secrets.ALIAS_PASS}}" ./gradlew app:assembleOssRelease 2>&1 | tee /tmp/gradle_build.log || {
-            ERR=$?
-            echo "### Gradle Build Failed (Exit code: $ERR)" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -n 100 /tmp/gradle_build.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            exit $ERR
-          }
-          APK=$(find app/build/outputs/apk -name '*universal*.apk' -o -name '*arm64-v8a*.apk')
-          APK=$(dirname $(echo "$APK" | head -n 1))
-          echo "APK=$APK" >> $GITHUB_ENV
+          KEYSTORE_PASS="${{ secrets.KEYSTORE_PASS }}" ALIAS_NAME="${{ secrets.ALIAS_NAME }}" ALIAS_PASS="${{ secrets.ALIAS_PASS}}" ./gradlew app:assembleOssRelease --stacktrace
+          echo "Build completed. Searching for APKs..."
+          find app/build/outputs/apk -name '*.apk'
+          APK_DIR=$(dirname $(find app/build/outputs/apk -name '*.apk' | head -n 1))
+          echo "APK_DIR=$APK_DIR" >> $GITHUB_ENV
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: NekoBoxs
-          path: ${{ env.APK }}
+          path: ${{ env.APK_DIR }}/*.apk
