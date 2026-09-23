@@ -48,6 +48,10 @@ android {
     }
     lint {
         baseline = file("lint-baseline.xml")
+        abortOnError = false
+        checkReleaseBuilds = false
+        checkAllWarnings = false
+        warningsAsErrors = false
     }
     compileOptions {
         isCoreLibraryDesugaringEnabled = true

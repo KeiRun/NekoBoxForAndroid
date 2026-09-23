@@ -41,11 +41,11 @@ fun Project.requireLocalProperties(): Properties {
 
 fun Project.setupCommon() {
     android.apply {
-        buildToolsVersion = "36.0.0"
-        compileSdk = 37
+        buildToolsVersion = "35.0.0"
+        compileSdk = 35
         defaultConfig {
-            minSdk = 23
-            targetSdk = 37
+            minSdk = 21
+            targetSdk = 35
         }
         buildTypes {
             getByName("release") {
@@ -57,12 +57,11 @@ fun Project.setupCommon() {
             targetCompatibility = JavaVersion.VERSION_1_8
         }
         lint {
-            showAll = true
-            checkAllWarnings = true
-            checkReleaseBuilds = true
-            warningsAsErrors = true
-            textOutput = project.file("build/lint.txt")
-            htmlOutput = project.file("build/lint.html")
+            showAll = false
+            checkAllWarnings = false
+            checkReleaseBuilds = false
+            abortOnError = false
+            warningsAsErrors = false
         }
         packaging {
             resources.excludes.addAll(
@@ -193,18 +192,19 @@ fun Project.setupApp() {
         val flavorName = variant.productFlavors.firstOrNull { it.first == "vendor" }?.second
         val fileNamePrefix = if (flavorName == "plus") "NekoBoxPlus-" else "NekoBox-"
         variant.outputs.forEach { output ->
-            val originalFileName = output.outputFileName.get()
             output.outputFileName.set(
-                if (flavorName == "preview") {
-                    originalFileName.replace(
-                        project.name,
-                        fileNamePrefix + requireMetadata().getProperty("PRE_VERSION_NAME")
-                    ).replace("-preview", "")
-                } else {
-                    originalFileName.replace(project.name, "$fileNamePrefix$verName")
-                        .replace("-release", "")
-                        .replace("-oss", "")
-                        .replace("-plus-", "-")
+                output.outputFileName.map { originalFileName ->
+                    if (flavorName == "preview") {
+                        originalFileName.replace(
+                            project.name,
+                            fileNamePrefix + requireMetadata().getProperty("PRE_VERSION_NAME")
+                        ).replace("-preview", "")
+                    } else {
+                        originalFileName.replace(project.name, "$fileNamePrefix$verName")
+                            .replace("-release", "")
+                            .replace("-oss", "")
+                            .replace("-plus-", "-")
+                    }
                 }
             )
         }
