@@ -33,7 +33,15 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-go@v6
         with:
-          go-version: 1.26.5
+          go-version: ^1.24
+      - name: Setup Toolchains
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          rustup target add armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+          NDK_DIR=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+          echo "Found NDK at: $NDK_DIR"
+          echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
+          echo "NDK=$NDK_DIR" >> $GITHUB_ENV
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
         run: ./run lib core
@@ -69,8 +77,9 @@ jobs:
         env:
           BUILD_PLUGIN: none
         run: |
+          NDK_DIR=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
-          echo "ndk.dir=${ANDROID_HOME}/ndk/25.0.8775105" >> local.properties
+          echo "ndk.dir=$NDK_DIR" >> local.properties
           export LOCAL_PROPERTIES="${{ secrets.LOCAL_PROPERTIES }}"
           ./run init action gradle
           ./gradlew app:assembleOssDebug
