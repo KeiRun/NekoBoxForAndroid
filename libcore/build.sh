@@ -15,6 +15,7 @@ if [ -z "$GOPATH" ]; then
 fi
 
 # Verify gVisor workaround.
+echo "==> [libcore/build.sh] Verifying gVisor workaround..."
 if ! go run -tags=with_gvisor ../../sing-box/cmd/internal/gvisor_workaround_verify/main.go; then
 	echo "ERROR: gVisor workaround verification failed"
 	exit 1
@@ -33,6 +34,7 @@ build_adblock_assets() {
 		exit 1
 	fi
 
+	echo "==> [libcore/build.sh] Running Makefile.plus adblock-rust-sync adblock-resources-generate..."
 	make -C "$sing_box_dir" -f Makefile.plus adblock-rust-sync adblock-resources-generate || exit 1
 
 	export CARGO_TARGET_DIR="$target_dir"
@@ -45,12 +47,17 @@ build_adblock_assets() {
 	export AR_i686_linux_android="$llvm_bin/llvm-ar"
 	export AR_x86_64_linux_android="$llvm_bin/llvm-ar"
 
+	echo "==> [libcore/build.sh] Building adblock bridge for armv7-linux-androideabi..."
 	cargo build --manifest-path "$bridge_dir/Cargo.toml" --release --target armv7-linux-androideabi || exit 1
+	echo "==> [libcore/build.sh] Building adblock bridge for aarch64-linux-android..."
 	cargo build --manifest-path "$bridge_dir/Cargo.toml" --release --target aarch64-linux-android || exit 1
+	echo "==> [libcore/build.sh] Building adblock bridge for i686-linux-android..."
 	cargo build --manifest-path "$bridge_dir/Cargo.toml" --release --target i686-linux-android || exit 1
+	echo "==> [libcore/build.sh] Building adblock bridge for x86_64-linux-android..."
 	cargo build --manifest-path "$bridge_dir/Cargo.toml" --release --target x86_64-linux-android || exit 1
 }
 
+echo "==> [libcore/build.sh] Starting build_adblock_assets..."
 build_adblock_assets
 
 # Resolve bundled-module versions from their sibling git repos and inject them

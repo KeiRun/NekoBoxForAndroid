@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'nb4a.properties'
+      - awg-v31
 jobs:
   libcore:
     name: Native Build (LibCore)
@@ -39,7 +38,15 @@ jobs:
           echo "NDK=$NDK_DIR" >> $GITHUB_ENV
       - name: Native Build
         if: steps.cache.outputs.cache-hit != 'true'
-        run: ./run lib core
+        run: |
+          ./run lib core 2>&1 | tee /tmp/native_build.log || {
+            ERR=$?
+            echo "### Native Build Failed (Exit code: $ERR)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 100 /tmp/native_build.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit $ERR
+          }
   build:
     name: Build OSS APK
     runs-on: ubuntu-latest
