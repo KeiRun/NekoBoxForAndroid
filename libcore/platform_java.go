@@ -9,6 +9,9 @@ var isBgProcess bool
 type NB4AInterface interface {
 	UseOfficialAssets() bool
 	Selector_OnProxySelected(selectorTag string, tag string)
+	MasterDnsVPNResolverProgress(found int32, total int32, ready bool)
+	MasterDnsVPNStartupFailed(noWorkingDNS bool, message string)
+	EndpointAuthenticationRequired(protocol string, detail string)
 }
 
 type BoxPlatformInterface interface {
@@ -19,4 +22,8 @@ type BoxPlatformInterface interface {
 	PackageNameByUid(uid int32) (string, error)
 	UIDByPackageName(packageName string) (int32, error)
 	WIFIState() string
+	DefaultInterface() string
+	NetworkInterfaces() string
+	SendNotification(identifier, typeName, title, body, openURL string) error
+	CancelNotification(identifier string, typeID int32) error
 }
