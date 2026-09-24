@@ -6,6 +6,7 @@ import io.nekohasekai.sagernet.fmt.openconnect.parseOpenConnectConfig
 import io.nekohasekai.sagernet.fmt.openconnect.parseOpenConnectServerList
 import io.nekohasekai.sagernet.fmt.openvpn.parseOpenVPNConfig
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardConfParser
+import io.nekohasekai.sagernet.fmt.wireguard.extractConfProfileName
 import io.nekohasekai.sagernet.ktx.AmneziaApiKeyUnsupportedException
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.decodeBase64UrlSafe
@@ -82,3 +83,9 @@ internal object DefaultSubscriptionContentParser : SubscriptionContentParser {
         try {
             return parseProxies(text).takeIf { it.isNotEmpty() }
         } catch (error: Exception) {
+            Logs.w(error)
+        }
+
+        return null
+    }
+}

@@ -13,7 +13,7 @@ internal object LocalNetworkPermission {
         tunImplementation: Int,
         permissionGranted: Boolean,
     ): Boolean {
-        if (sdkInt < Build.VERSION_CODES.CINNAMON_BUN || permissionGranted) return false
+        if (sdkInt < 36 || permissionGranted) return false
         return tunImplementation == TunImplementation.SYSTEM ||
             tunImplementation == TunImplementation.MIXED
     }

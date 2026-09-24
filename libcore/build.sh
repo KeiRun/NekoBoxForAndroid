@@ -27,7 +27,8 @@ build_adblock_assets() {
 	local sing_box_dir="../../sing-box"
 	local bridge_dir="$sing_box_dir/common/adblock/bridge"
 	local target_dir="$bridge_dir/target"
-	local llvm_bin="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+	local llvm_host=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+	local llvm_bin="$llvm_host/bin"
 
 	if [ ! -f "$sing_box_dir/Makefile.plus" ]; then
 		echo "ERROR: sing-box Makefile.plus not found"
@@ -36,6 +37,7 @@ build_adblock_assets() {
 
 	echo "==> [libcore/build.sh] Running Makefile.plus adblock-rust-sync adblock-resources-generate..."
 	make -C "$sing_box_dir" -f Makefile.plus adblock-rust-sync adblock-resources-generate || exit 1
+	touch "$sing_box_dir/common/adblock/adblockrust/resources/files/placeholder.txt"
 
 	export CARGO_TARGET_DIR="$target_dir"
 	export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_LINKER="$llvm_bin/armv7a-linux-androideabi21-clang"
@@ -88,7 +90,7 @@ VERSION_MASTERDNSVPN="$(resolve_version ../../MasterDnsVPN-plus tag)"
 VERSION_ADBLOCK_RUST="$(resolve_version ../../adblock-rust)"
 VERSION_ADBLOCK_RESOURCES="$(resolve_version ../../adblock-resources)"
 VERSION_UBLOCK="$(resolve_version ../../uBlock)"
-VERSION_SING_BOX="$(cd ../../sing-box && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go run ./cmd/internal/read_tag_plus)" || exit 1
+VERSION_SING_BOX="$(cd ../../sing-box && CGO_ENABLED=0 go run ./cmd/internal/read_tag_plus)" || exit 1
 
 VERSION_LDFLAGS=""
 append_version_ldflag() {

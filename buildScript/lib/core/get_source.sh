@@ -1,5 +1,8 @@
 #!/bin/bash
 set -e
+if [[ "$HTTPS_PROXY" =~ "127.0.0.1" || "$HTTPS_PROXY" =~ "agy" ]]; then
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+fi
 source "buildScript/init/env.sh"
 ENV_NB4A=1
 source "buildScript/lib/core/get_source_env.sh"
@@ -48,11 +51,20 @@ fi
 #### amneziawg-go & utls
 if [ ! -d "amneziawg-go" ]; then
   echo "==> [get_source.sh] Cloning amneziawg-go..."
-  git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-go.git amneziawg-go
+  git clone https://github.com/amnezia-vpn/amneziawg-go.git amneziawg-go
+  pushd amneziawg-go
+  for p in ../sing-box/patches/amneziawg-go/*.patch; do
+    [ -f "$p" ] && git apply "$p" || true
+  done
+  popd
 fi
 if [ ! -d "utls" ]; then
   echo "==> [get_source.sh] Cloning utls..."
-  git clone --depth 1 https://github.com/metacubex/utls.git utls
+  git clone https://github.com/metacubex/utls.git utls
+  pushd utls
+  git checkout f7d52c22f3a8d2f510ad1470f75cb6c3fe26aa37
+  git apply ../sing-box/patches/utls/0001-utls-new-fingerprints.patch || true
+  popd
 fi
 #### byedpi
 if [ ! -d "byedpi" ]; then

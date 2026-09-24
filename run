@@ -2,7 +2,7 @@
 
 EXEC=""
 TARGET="buildScript"
-declare -A PARAMS
+declare -a PARAMS
 declare -i INDEX=0
 
 for e in $@; do

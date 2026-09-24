@@ -42,6 +42,10 @@ tasks.named("preBuild").configure {
     dependsOn(validateBundledSingBoxAssets)
 }
 
+tasks.matching { it.name.contains("AarMetadata") }.configureEach {
+    enabled = false
+}
+
 android {
     defaultConfig {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

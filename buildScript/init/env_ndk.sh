@@ -19,9 +19,9 @@ elif [ -n "$NDK" ] && [ -f "$NDK/source.properties" ]; then
 elif [ -f "$ANDROID_HOME/ndk/27.3.13750724/source.properties" ]; then
   _NDK="$ANDROID_HOME/ndk/27.3.13750724"
 elif [ -d "$ANDROID_HOME/ndk" ]; then
-  _LATEST_NDK=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n 1)
-  if [ -n "$_LATEST_NDK" ] && [ -f "$ANDROID_HOME/ndk/$_LATEST_NDK/source.properties" ]; then
-    _NDK="$ANDROID_HOME/ndk/$_LATEST_NDK"
+  _LATEST_NDK=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+  if [ -n "$_LATEST_NDK" ] && [ -f "$_LATEST_NDK/source.properties" ]; then
+    _NDK="$_LATEST_NDK"
   fi
 fi
 

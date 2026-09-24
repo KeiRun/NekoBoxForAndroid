@@ -1,4 +1,6 @@
-#!/bin/bash
+if [[ "$HTTPS_PROXY" =~ "127.0.0.1" || "$HTTPS_PROXY" =~ "agy" ]]; then
+  unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+fi
 
 source buildScript/init/env_ndk.sh
 
@@ -25,7 +27,8 @@ fi
 export PATH="$GOBIN:$PATH"
 mkdir -p "$GOPATH" "$GOMOBILE" "$GOCACHE" "$GOMODCACHE" "$GOBIN"
 
-DEPS=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin
+PREBUILT_HOST=$(find "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+DEPS="$PREBUILT_HOST/bin"
 
 export ANDROID_ARM_CC=$DEPS/armv7a-linux-androideabi21-clang
 export ANDROID_ARM_CXX=$DEPS/armv7a-linux-androideabi21-clang++

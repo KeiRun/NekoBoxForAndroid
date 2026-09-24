@@ -1,5 +1,6 @@
 package io.nekohasekai.sagernet.ktx
 
+import java.util.Locale
 import com.google.gson.JsonParser
 import io.nekohasekai.sagernet.fmt.AbstractBean
 import io.nekohasekai.sagernet.fmt.Serializable

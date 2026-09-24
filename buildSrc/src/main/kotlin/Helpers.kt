@@ -44,7 +44,7 @@ fun Project.setupCommon() {
         buildToolsVersion = "35.0.0"
         compileSdk = 35
         defaultConfig {
-            minSdk = 21
+            minSdk = 23
             targetSdk = 35
         }
         buildTypes {
@@ -192,21 +192,21 @@ fun Project.setupApp() {
         val flavorName = variant.productFlavors.firstOrNull { it.first == "vendor" }?.second
         val fileNamePrefix = if (flavorName == "plus") "NekoBoxPlus-" else "NekoBox-"
         variant.outputs.forEach { output ->
-            output.outputFileName.set(
-                output.outputFileName.map { originalFileName ->
-                    if (flavorName == "preview") {
-                        originalFileName.replace(
-                            project.name,
-                            fileNamePrefix + requireMetadata().getProperty("PRE_VERSION_NAME")
-                        ).replace("-preview", "")
-                    } else {
-                        originalFileName.replace(project.name, "$fileNamePrefix$verName")
-                            .replace("-release", "")
-                            .replace("-oss", "")
-                            .replace("-plus-", "-")
-                    }
+            val originalFileName = output.outputFileName.orNull
+            if (originalFileName != null) {
+                val newName = if (flavorName == "preview") {
+                    originalFileName.replace(
+                        project.name,
+                        fileNamePrefix + requireMetadata().getProperty("PRE_VERSION_NAME")
+                    ).replace("-preview", "")
+                } else {
+                    originalFileName.replace(project.name, "$fileNamePrefix$verName")
+                        .replace("-release", "")
+                        .replace("-oss", "")
+                        .replace("-plus-", "-")
                 }
-            )
+                output.outputFileName.set(newName)
+            }
         }
     }
 }
