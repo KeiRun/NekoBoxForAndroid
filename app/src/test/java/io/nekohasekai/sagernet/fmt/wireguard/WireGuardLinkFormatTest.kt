@@ -210,6 +210,34 @@ class WireGuardLinkFormatTest {
         assertEquals("NL2-Awg3.1-ss4-main", beans.single().name)
     }
 
+    @Test
+    fun awg31ProfileNameAutoEnablesTrailersAndDisablesCookies() {
+        val uriWithoutParams = "amneziawg://wGy%2Bb1LLyhYtnz68v22m2jbixxyX5mls55jx7r20hUY%3D@77.239.109.87:49642?address=10.7.0.2%2F32&publickey=gG03xNqX8i0m1Hq0L5KqT60k02qQ22b0s1kQ614n22M%3D&headerprotectionkey=test#NL2-Awg3.1-ss4-main"
+        val beans = parseAmneziaWGUri(uriWithoutParams)
+        val bean = beans.single()
+        assertEquals("NL2-Awg3.1-ss4-main", bean.name)
+        assertTrue(bean.randomTrailers == true)
+        assertTrue(bean.disableCookies == true)
+        assertTrue(bean.hasAmneziaWG31Options())
+
+        val sbEndpoint = buildSingBoxEndpointAwgBean(bean)
+        assertTrue(sbEndpoint.random_trailers == true)
+        assertTrue(sbEndpoint.disable_cookies == true)
+    }
+
+    @Test
+    fun awg31TrailerAliasesAndAutoDisableCookies() {
+        val uriWithRt = "amneziawg://wGy%2Bb1LLyhYtnz68v22m2jbixxyX5mls55jx7r20hUY%3D@77.239.109.87:49642?address=10.7.0.2%2F32&publickey=gG03xNqX8i0m1Hq0L5KqT60k02qQ22b0s1kQ614n22M%3D&rt=true#NL1"
+        val bean = parseAmneziaWGUri(uriWithRt).single()
+        assertTrue(bean.randomTrailers == true)
+        assertTrue(bean.disableCookies == true)
+
+        val uriWithTrailers = "amneziawg://wGy%2Bb1LLyhYtnz68v22m2jbixxyX5mls55jx7r20hUY%3D@77.239.109.87:49642?address=10.7.0.2%2F32&publickey=gG03xNqX8i0m1Hq0L5KqT60k02qQ22b0s1kQ614n22M%3D&trailers=1#NL1"
+        val bean2 = parseAmneziaWGUri(uriWithTrailers).single()
+        assertTrue(bean2.randomTrailers == true)
+        assertTrue(bean2.disableCookies == true)
+    }
+
     @OptIn(ExperimentalEncodingApi::class)
     private fun encode(value: String): String =
         Base64.UrlSafe.encode(value.toByteArray()).trimEnd('=')

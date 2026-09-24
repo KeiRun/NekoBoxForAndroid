@@ -23,6 +23,7 @@ import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
 import io.nekohasekai.sagernet.fmt.v2ray.applyClashXhttpOptions
 import io.nekohasekai.sagernet.fmt.wireguard.AmneziaWGBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
+import io.nekohasekai.sagernet.fmt.wireguard.isAwg31Name
 import io.nekohasekai.sagernet.ktx.Logs
 import io.nekohasekai.sagernet.ktx.applyDefaultValues
 import io.nekohasekai.sagernet.ktx.isIpAddress
@@ -496,8 +497,18 @@ internal object ClashParser {
         rejectAfterTime = options.value("reject-after-time")
         keepaliveTimeout = options.value("keepalive-timeout")
         maxHandshakeAttempts = options.value("max-handshake-attempts")
-        randomTrailers = options.boolean("random-trailers")
-        disableCookies = options.boolean("disable-cookies")
+        val parsedRt = listOf(
+            "random-trailers", "random-trailer", "random_trailers", "random_trailer",
+            "randomtrailers", "randomtrailer", "randomize-trailers", "trailers", "trailer", "rt",
+        ).firstNotNullOfOrNull { options.boolean(it) }
+        val parsedDc = listOf(
+            "disable-cookies", "disable-cookie", "disable_cookies", "disable_cookie",
+            "disablecookies", "disablecookie", "no-cookies", "nocookies", "dc",
+        ).firstNotNullOfOrNull { options.boolean(it) }
+
+        val isAwg31 = isAwg31Name(name) || parsedRt == true
+        randomTrailers = parsedRt ?: isAwg31
+        disableCookies = parsedDc ?: (isAwg31 || randomTrailers == true)
     }
 
     private fun applyWireGuardOverrides(

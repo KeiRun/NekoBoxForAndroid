@@ -88,8 +88,26 @@ public class AmneziaWGBean extends AbstractBean {
         if (rejectAfterTime == null) rejectAfterTime = "";
         if (keepaliveTimeout == null) keepaliveTimeout = "";
         if (maxHandshakeAttempts == null) maxHandshakeAttempts = "";
-        if (randomTrailers == null) randomTrailers = false;
-        if (disableCookies == null) disableCookies = false;
+        if (name != null) {
+            String lower = name.toLowerCase(java.util.Locale.ROOT);
+            if (lower.contains("awg3.1") || lower.contains("awg 3.1") ||
+                lower.contains("amneziawg3.1") || lower.contains("amneziawg 3.1") ||
+                lower.contains("awg-3.1") || lower.contains("awg_3.1") ||
+                lower.contains("awg31") || lower.contains("awg-v3.1") ||
+                lower.contains("awg-v31") || lower.contains("awg v3.1") ||
+                lower.contains("awg v31")) {
+                randomTrailers = true;
+                disableCookies = true;
+            }
+        }
+        if (randomTrailers == null) {
+            randomTrailers = false;
+        }
+        if (disableCookies == null) {
+            disableCookies = Boolean.TRUE.equals(randomTrailers);
+        } else if (Boolean.TRUE.equals(randomTrailers)) {
+            disableCookies = true;
+        }
     }
 
     @Override

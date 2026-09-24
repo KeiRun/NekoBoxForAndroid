@@ -21,6 +21,7 @@ import io.nekohasekai.sagernet.fmt.wireguard.extractConfProfileName
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardConfDocument
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardConfParser
+import io.nekohasekai.sagernet.fmt.wireguard.isAwg31Name
 import io.nekohasekai.sagernet.fmt.wireguard.parseAmneziaWGJsonContainer
 import io.nekohasekai.sagernet.ktx.*
 import io.nekohasekai.sagernet.routing.SubscriptionRoutingExtractor
@@ -160,6 +161,7 @@ object RawUpdater : GroupUpdater() {
             ),
         )
         var autoUpdateEnabledFromHeader = false
+        var metadata: SubscriptionMetadata? = null
         if (document.source == SubscriptionDocument.Source.CONTENT) {
             runCatching {
                 SubscriptionRoutingRepository.updateStored(
@@ -186,7 +188,7 @@ object RawUpdater : GroupUpdater() {
                 )
                 SubscriptionRoutingRepository.updateStored(subscription, routingSource, proxyGroup.id)
             }.onFailure(Logs::w)
-            val metadata = SubscriptionMetadataParser.parse(
+            metadata = SubscriptionMetadataParser.parse(
                 document,
                 isFirstUpdate = subscription.providerAutoUpdateDefaultsApplied != true,
             )
@@ -206,7 +208,7 @@ object RawUpdater : GroupUpdater() {
             subscription.providerAutoUpdateDefaultsApplied = true
 
             // 修改默认名字
-            if (proxyGroup.name?.startsWith("Subscription #") == true) {
+            if (proxyGroup.name?.startsWith("Subscription #") == true || proxyGroup.name.isNullOrBlank()) {
                 metadata.suggestedName?.takeIf(String::isNotBlank)?.let { proxyGroup.name = it }
             }
         }
@@ -244,6 +246,39 @@ object RawUpdater : GroupUpdater() {
             muxBrutal = currentGroup.muxBrutal
             muxBrutalUpMbps = currentGroup.muxBrutalUpMbps
             muxBrutalDownMbps = currentGroup.muxBrutalDownMbps
+        }
+
+        val subName = proxyGroup.name
+            ?.takeIf { it.isNotBlank() && !it.startsWith("Subscription #") && !it.startsWith("Group #") }
+            ?: metadata?.suggestedName?.takeIf(String::isNotBlank)
+
+        if (!subName.isNullOrBlank()) {
+            proxies.forEach { profile ->
+                val currentName = profile.name.orEmpty().trim()
+                val serverAddress = profile.serverAddress.orEmpty()
+                val isDefaultName = currentName.isBlank() ||
+                    (serverAddress.isNotBlank() && (currentName == serverAddress || currentName == "${serverAddress}:${profile.serverPort}"))
+                if (isDefaultName) {
+                    profile.name = subName
+                } else if (!currentName.contains(subName, ignoreCase = true)) {
+                    profile.name = "$currentName-$subName"
+                }
+                if (profile is AmneziaWGBean) {
+                    if (isAwg31Name(profile.name) || profile.randomTrailers == true) {
+                        profile.randomTrailers = true
+                        profile.disableCookies = true
+                    }
+                }
+            }
+        } else {
+            proxies.forEach { profile ->
+                if (profile is AmneziaWGBean) {
+                    if (isAwg31Name(profile.name) || profile.randomTrailers == true) {
+                        profile.randomTrailers = true
+                        profile.disableCookies = true
+                    }
+                }
+            }
         }
 
         proxies = SubscriptionProfilePolicy.assignUniqueNames(proxies)
@@ -340,6 +375,10 @@ object RawUpdater : GroupUpdater() {
             if (bean.name.isBlank() && !confName.isNullOrBlank()) {
                 bean.name = confName
             }
+            if (isAwg31Name(bean.name) || bean.randomTrailers == true) {
+                bean.randomTrailers = true
+                bean.disableCookies = true
+            }
         }
     }
 
@@ -384,6 +423,7 @@ object RawUpdater : GroupUpdater() {
             peerBean.peerPersistentKeepalive =
                 peer["PersistentKeepalive"] ?: peer["PersistentKeepAlive"] ?: "0"
             peerBean.reserved = peer["Reserved"] ?: ""
+            peerBean.applyAmneziaWG3Options { peer[it] ?: iface[it] }
             beans.add(peerBean.applyDefaultValues())
         }
         if (beans.isEmpty()) error("Empty available peer list")

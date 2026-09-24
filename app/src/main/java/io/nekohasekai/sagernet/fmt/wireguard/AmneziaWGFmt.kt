@@ -21,7 +21,7 @@ private const val AMNEZIAWG_SCHEME = "amneziawg://"
 private const val AMNEZIAWG_SHORT_SCHEME = "awg://"
 
 fun extractConfProfileName(conf: String): String? {
-    val explicitRegex = Regex("""(?im)^\s*[#;]\s*(?:Name|Profile|Description)\s*[:=]\s*(.+?)\s*$""")
+    val explicitRegex = Regex("""(?im)^\s*[#;]\s*(?:Name|Profile|Description|Profile-Title|Title)\s*[:=]\s*(.+?)\s*$""")
     explicitRegex.find(conf)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
 
     for (rawLine in conf.lineSequence()) {
@@ -33,6 +33,7 @@ fun extractConfProfileName(conf: String): String? {
             if (comment.isNotBlank() &&
                 !comment.startsWith('[') &&
                 !comment.contains('=') &&
+                !comment.startsWith("profile-title:", ignoreCase = true) &&
                 !comment.startsWith("WireGuard", ignoreCase = true) &&
                 !comment.startsWith("AmneziaWG", ignoreCase = true) &&
                 !comment.startsWith("Configuration", ignoreCase = true)
@@ -44,15 +45,33 @@ fun extractConfProfileName(conf: String): String? {
     return null
 }
 
+internal fun isAwg31Name(name: String?): Boolean {
+    if (name.isNullOrBlank()) return false
+    val lower = name.lowercase(Locale.ROOT)
+    return lower.contains("awg3.1") ||
+        lower.contains("awg 3.1") ||
+        lower.contains("amneziawg3.1") ||
+        lower.contains("amneziawg 3.1") ||
+        lower.contains("awg-3.1") ||
+        lower.contains("awg_3.1") ||
+        lower.contains("awg31") ||
+        lower.contains("awg-v3.1") ||
+        lower.contains("awg-v31") ||
+        lower.contains("awg v3.1") ||
+        lower.contains("awg v31")
+}
+
 private val throneAmneziaParameters = setOf(
     "jc", "jmin", "jmax", "s1", "s2", "s3", "s4",
     "h1", "h2", "h3", "h4", "i1", "i2", "i3", "i4", "i5",
     "header_protection_key", "content_padding_addition", "rekey_after_time",
     "rekey_timeout", "reject_after_time", "keepalive_timeout", "max_handshake_attempts",
-    "random_trailers", "disable_cookies",
+    "random_trailers", "randomtrailers", "random_trailer", "randomtrailer",
+    "randomizetrailers", "randomize_trailers", "trailers", "trailer", "rt",
+    "disable_cookies", "disablecookies", "disable_cookie", "disablecookie",
+    "no_cookies", "nocookies", "dc",
     "headerprotectionkey", "contentpaddingaddition", "rekeyaftertime",
     "rekeytimeout", "rejectaftertime", "keepalivetimeout", "maxhandshakeattempts",
-    "randomtrailers", "disablecookies",
 )
 
 fun parseThroneWireGuardUri(url: String): AbstractBean {
@@ -108,12 +127,21 @@ fun parseThroneWireGuardUri(url: String): AbstractBean {
             ?.let { keepaliveTimeout = it }
         (url.throneQueryParameter("max_handshake_attempts") ?: url.throneQueryParameter("maxhandshakeattempts"))
             ?.let { maxHandshakeAttempts = it }
-        (parseAmneziaWGToggle(url.throneQueryParameter("random_trailers"))
-            ?: parseAmneziaWGToggle(url.throneQueryParameter("randomtrailers")))
-            ?.let { randomTrailers = it }
-        (parseAmneziaWGToggle(url.throneQueryParameter("disable_cookies"))
-            ?: parseAmneziaWGToggle(url.throneQueryParameter("disablecookies")))
-            ?.let { disableCookies = it }
+        val hasRandomTrailers = listOf(
+            "random_trailers", "randomtrailers", "random_trailer", "randomtrailer",
+            "randomizetrailers", "randomize_trailers", "trailers", "trailer", "rt",
+        ).firstNotNullOfOrNull { key ->
+            url.throneQueryParameter(key)?.let(::parseAmneziaWGToggle)
+        }
+        val hasDisableCookies = listOf(
+            "disable_cookies", "disablecookies", "disable_cookie", "disablecookie",
+            "no_cookies", "nocookies", "dc",
+        ).firstNotNullOfOrNull { key ->
+            url.throneQueryParameter(key)?.let(::parseAmneziaWGToggle)
+        }
+        val isAwg31 = isAwg31Name(name) || hasRandomTrailers == true || hasDisableCookies == true
+        randomTrailers = hasRandomTrailers ?: (if (isAwg31) true else false)
+        disableCookies = hasDisableCookies ?: (if (isAwg31 || randomTrailers == true) true else false)
     }
 }
 
@@ -140,8 +168,31 @@ internal fun AmneziaWGBean.applyAmneziaWG3Options(option: (String) -> String?) {
     findOption("RejectAfterTime", "reject_after_time", "rejectaftertime")?.let { rejectAfterTime = it }
     findOption("KeepaliveTimeout", "keepalive_timeout", "keepalivetimeout")?.let { keepaliveTimeout = it }
     findOption("MaxHandshakeAttempts", "max_handshake_attempts", "maxhandshakeattempts")?.let { maxHandshakeAttempts = it }
-    parseAmneziaWGToggle(findOption("RandomTrailers", "random_trailers", "randomtrailers"))?.let { randomTrailers = it }
-    parseAmneziaWGToggle(findOption("DisableCookies", "disable_cookies", "disablecookies"))?.let { disableCookies = it }
+
+    val rtOption = findOption(
+        "RandomTrailers", "random_trailers", "randomtrailers",
+        "RandomTrailer", "random_trailer", "randomtrailer",
+        "RandomizeTrailers", "randomize_trailers", "randomizetrailers",
+        "Trailers", "trailers", "Trailer", "trailer",
+        "RT", "rt",
+    )
+    val parsedRt = parseAmneziaWGToggle(rtOption)
+    if (parsedRt != null) randomTrailers = parsedRt
+
+    val dcOption = findOption(
+        "DisableCookies", "disable_cookies", "disablecookies",
+        "DisableCookie", "disable_cookie", "disablecookie",
+        "NoCookies", "no_cookies", "nocookies",
+        "DC", "dc",
+    )
+    val parsedDc = parseAmneziaWGToggle(dcOption)
+    if (parsedDc != null) disableCookies = parsedDc
+
+    val isAwg31 = isAwg31Name(name) || randomTrailers == true
+    if (isAwg31) {
+        if (randomTrailers != false) randomTrailers = true
+        if (disableCookies != false) disableCookies = true
+    }
 }
 
 fun parseAmneziaWGUri(link: String): List<AmneziaWGBean> {
@@ -269,10 +320,24 @@ private fun parseAmneziaWGStandardUri(url: String, explicitName: String?): Amnez
         queryParams["maxhandshakeattempts"]?.let { maxHandshakeAttempts = it }
 
         // AWG 3.1
-        val rtVal = queryParams["randomtrailers"]
-        randomTrailers = parseAmneziaWGToggle(rtVal) ?: ("randomtrailers" in presentKeys)
-        val dcVal = queryParams["disablecookies"]
-        disableCookies = parseAmneziaWGToggle(dcVal) ?: ("disablecookies" in presentKeys)
+        val rtKeys = listOf(
+            "randomtrailers", "randomtrailer", "randomizetrailers", "randomizetrailer",
+            "trailers", "trailer", "rt",
+        )
+        val rtVal = rtKeys.firstNotNullOfOrNull { queryParams[it] }
+        val rtInPresent = rtKeys.any { it in presentKeys }
+        val parsedRt = parseAmneziaWGToggle(rtVal) ?: if (rtInPresent) true else null
+
+        val dcKeys = listOf(
+            "disablecookies", "disablecookie", "nocookies", "nocookie", "dc",
+        )
+        val dcVal = dcKeys.firstNotNullOfOrNull { queryParams[it] }
+        val dcInPresent = dcKeys.any { it in presentKeys }
+        val parsedDc = parseAmneziaWGToggle(dcVal) ?: if (dcInPresent) true else null
+
+        val isAwg31 = isAwg31Name(fragmentName ?: host) || parsedRt == true
+        randomTrailers = parsedRt ?: (if (isAwg31) true else false)
+        disableCookies = parsedDc ?: (if (isAwg31 || randomTrailers == true) true else false)
 
         require(privateKey.isNotBlank()) { "Missing WireGuard private key" }
         require(peerPublicKey.isNotBlank()) { "Missing WireGuard peer public key" }
@@ -317,8 +382,9 @@ fun AmneziaWGBean.toAmneziaWGUri(): String {
     if (rejectAfterTime.isNotBlank()) builder.addQueryParameter("rejectaftertime", rejectAfterTime)
     if (keepaliveTimeout.isNotBlank()) builder.addQueryParameter("keepalivetimeout", keepaliveTimeout)
     if (maxHandshakeAttempts.isNotBlank()) builder.addQueryParameter("maxhandshakeattempts", maxHandshakeAttempts)
-    if (randomTrailers == true) builder.addQueryParameter("randomtrailers", "true")
-    if (disableCookies == true) builder.addQueryParameter("disablecookies", "true")
+    val isAwg31 = randomTrailers == true || disableCookies == true || isAwg31Name(name)
+    if (randomTrailers == true || isAwg31) builder.addQueryParameter("randomtrailers", "true")
+    if (disableCookies == true || isAwg31) builder.addQueryParameter("disablecookies", "true")
 
     if (name.isNotBlank()) builder.fragment(name)
     val link = builder.toLink("amneziawg").replace(":$serverPort/", ":$serverPort")
@@ -374,6 +440,10 @@ private fun parseNamedAmneziaWGConfig(
     val commentName = extractConfProfileName(config)
     return RawUpdater.parseAmneziaWG(config).onEach { bean ->
         bean.name = explicitName ?: commentName ?: bean.name.takeIf(String::isNotBlank) ?: bean.serverAddress
+        if (isAwg31Name(bean.name) || bean.randomTrailers == true) {
+            bean.randomTrailers = true
+            bean.disableCookies = true
+        }
     }
 }
 
@@ -436,8 +506,9 @@ fun AmneziaWGBean.buildAmneziaWGConfig(): String = buildString {
     if (maxHandshakeAttempts.isNotBlank()) {
         append("MaxHandshakeAttempts = ").append(maxHandshakeAttempts).append('\n')
     }
-    if (randomTrailers == true) append("RandomTrailers = on\n")
-    if (disableCookies == true) append("DisableCookies = on\n")
+    val isAwg31 = randomTrailers == true || disableCookies == true || isAwg31Name(name)
+    if (randomTrailers == true || isAwg31) append("RandomTrailers = on\n")
+    if (disableCookies == true || isAwg31) append("DisableCookies = on\n")
     append('\n')
     append("[Peer]\n")
     append("PublicKey = ").append(peerPublicKey).append('\n')
@@ -512,13 +583,14 @@ fun buildSingBoxEndpointAwgBean(bean: AmneziaWGBean): SingBoxOptions.AwgEndpoint
         if (bean.maxHandshakeAttempts.isNotBlank()) {
             max_handshake_attempts = bean.maxHandshakeAttempts
         }
-        if (bean.randomTrailers == true) random_trailers = true
-        if (bean.disableCookies == true) disable_cookies = true
+        val isAwg31 = bean.randomTrailers == true || bean.disableCookies == true || isAwg31Name(bean.name) || bean.hasAmneziaWG31Options()
+        if (bean.randomTrailers == true || isAwg31) random_trailers = true
+        if (bean.disableCookies == true || isAwg31 || bean.randomTrailers == true) disable_cookies = true
     }
 }
 
 fun AmneziaWGBean.hasAmneziaWG31Options(): Boolean =
-    randomTrailers == true || disableCookies == true
+    randomTrailers == true || disableCookies == true || isAwg31Name(name)
 
 fun AmneziaWGBean.hasAmneziaWG3Options(): Boolean =
     !headerProtectionKey.isNullOrBlank() ||

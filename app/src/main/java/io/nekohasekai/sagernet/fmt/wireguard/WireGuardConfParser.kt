@@ -10,8 +10,9 @@ internal data class WireGuardConfDocument(
         get() =
             interfaceOptions.keys.any(WireGuardConfParser.amneziaWGKeys::contains) ||
                 peers.any { peer ->
-                    (peer["PersistentKeepalive"] ?: peer["PersistentKeepAlive"])
-                        ?.contains('-') == true
+                    peer.keys.any(WireGuardConfParser.amneziaWGKeys::contains) ||
+                        (peer["PersistentKeepalive"] ?: peer["PersistentKeepAlive"])
+                            ?.contains('-') == true
                 }
 }
 
@@ -60,7 +61,17 @@ internal object WireGuardConfParser {
             "keepalivetimeout",
             "maxhandshakeattempts",
             "randomtrailers",
+            "randomtrailer",
+            "randomizetrailers",
+            "randomizetrailer",
+            "trailers",
+            "trailer",
+            "rt",
             "disablecookies",
+            "disablecookie",
+            "nocookies",
+            "nocookie",
+            "dc",
         )
 
     private val multilineKeys = setOf("i1", "i2", "i3", "i4", "i5")

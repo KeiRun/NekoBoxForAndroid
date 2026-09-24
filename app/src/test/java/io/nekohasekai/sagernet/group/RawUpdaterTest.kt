@@ -201,4 +201,30 @@ class RawUpdaterTest {
         assertEquals("https://account.example.com", headers.profileWebPageUrl)
         assertEquals("https://example.com", headers.homepage)
     }
+
+    @Test
+    fun `subscription name suffix is applied to profile names without duplicating existing suffix`() {
+        val subName = "ss4-main"
+        val profiles = listOf(
+            io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean().apply { name = "NL2-Awg3.1-ss4-main" },
+            io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean().apply { name = "NL1-awg3.1" },
+            io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean().apply { name = "DE-awg3.1" },
+            io.nekohasekai.sagernet.fmt.shadowsocks.ShadowsocksBean().apply { name = "Mieru" },
+        )
+        profiles.forEach { profile ->
+            val currentName = profile.name.orEmpty().trim()
+            val serverAddress = profile.serverAddress.orEmpty()
+            val isDefaultName = currentName.isBlank() ||
+                (serverAddress.isNotBlank() && (currentName == serverAddress || currentName == "${serverAddress}:${profile.serverPort}"))
+            if (isDefaultName) {
+                profile.name = subName
+            } else if (!currentName.contains(subName, ignoreCase = true)) {
+                profile.name = "$currentName-$subName"
+            }
+        }
+        assertEquals("NL2-Awg3.1-ss4-main", profiles[0].name)
+        assertEquals("NL1-awg3.1-ss4-main", profiles[1].name)
+        assertEquals("DE-awg3.1-ss4-main", profiles[2].name)
+        assertEquals("Mieru-ss4-main", profiles[3].name)
+    }
 }

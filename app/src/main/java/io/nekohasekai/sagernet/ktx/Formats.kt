@@ -9,6 +9,7 @@ import io.nekohasekai.sagernet.fmt.wireguard.AmneziaWGBean
 import io.nekohasekai.sagernet.fmt.wireguard.WireGuardBean
 import io.nekohasekai.sagernet.fmt.wireguard.applyAmneziaWG3Options
 import io.nekohasekai.sagernet.fmt.wireguard.extractConfProfileName
+import io.nekohasekai.sagernet.fmt.wireguard.isAwg31Name
 import io.nekohasekai.sagernet.fmt.wireguard.parseAmneziaWGUri
 import io.nekohasekai.sagernet.fmt.wireguard.parseThroneWireGuardUri
 import io.nekohasekai.sagernet.fmt.v2ray.VMessBean
@@ -397,6 +398,14 @@ suspend fun parseProxies(text: String): List<AbstractBean> {
         }
     }
     val parsed = if (entities.size > entitiesByLine.size) entities else entitiesByLine
+    parsed.forEach { bean ->
+        if (bean is AmneziaWGBean) {
+            if (isAwg31Name(bean.name) || bean.randomTrailers == true) {
+                bean.randomTrailers = true
+                bean.disableCookies = true
+            }
+        }
+    }
     val seenAmnezia = mutableSetOf<String>()
     return parsed.filter { bean ->
         bean !is AmneziaWGBean || seenAmnezia.add(bean.hash)
@@ -490,6 +499,14 @@ fun parseAmneziaVpnPayload(decoded: ByteArray): List<AbstractBean> {
     serverTitle?.let { title ->
         results.forEach { it.name = title }
     }
+    results.forEach { bean ->
+        if (bean is AmneziaWGBean) {
+            if (isAwg31Name(bean.name) || bean.randomTrailers == true) {
+                bean.randomTrailers = true
+                bean.disableCookies = true
+            }
+        }
+    }
     return results
 }
 
@@ -562,6 +579,10 @@ private fun parseAmneziaAwgLastConfig(lastConfig: String): List<AmneziaWGBean> {
             bean.applyAmneziaWG3Options { key ->
                 json.optStringOrAny(key)
             }
+        }
+        if (isAwg31Name(bean.name) || bean.randomTrailers == true) {
+            bean.randomTrailers = true
+            bean.disableCookies = true
         }
     }
 }

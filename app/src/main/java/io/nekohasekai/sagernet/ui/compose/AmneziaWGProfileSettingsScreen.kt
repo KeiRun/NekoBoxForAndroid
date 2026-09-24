@@ -75,6 +75,10 @@ internal fun AmneziaWGProfileSettingsScreen() {
         ProfileSwitchRow(icon, title, booleanValues[key] == true) {
             booleanValues[key] = it
             store.putBoolean(key, it)
+            if (key == "randomTrailers" && it) {
+                booleanValues["disableCookies"] = true
+                store.putBoolean("disableCookies", true)
+            }
         }
     }
 
